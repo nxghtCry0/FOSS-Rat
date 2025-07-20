@@ -1,0 +1,2 @@
+Not a valid token, but an example for your own.
+Rename to token.txt when you want to use it.
