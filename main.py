@@ -4,7 +4,7 @@ import os
 import command_executor as cmd  # Updated import
 
 TOKEN_PATH = 'token.txt'
-AUTHORIZED_USERS = [123456789012345678]  # Your User ID
+AUTHORIZED_USERS = [1153459521251983470]  # Your User ID
 
 intents = discord.Intents.default()
 intents.message_content = True
