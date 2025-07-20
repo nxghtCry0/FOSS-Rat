@@ -1,2 +1,6 @@
 discord.py==2.3.2
 plyer
+mss
+pillow
+psutil
+GPUtil
