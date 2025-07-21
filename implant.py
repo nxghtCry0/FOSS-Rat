@@ -11,7 +11,7 @@ import webcam_manager as wcm; import file_explorer as fe
 
 # --- Configuration ---
 TOKEN_PATH = 'token.txt'
-INSTRUCTION_PREFIX = 'EXEC_CMD:'; PONG_PREFIX = 'PONG:'
+INSTRUCTION_PREFIX = 'RUN COMMAND:'; PONG_PREFIX = 'PONG:'
 LIVE_SESSIONS_CATEGORY = "🔴 Live Sessions"; DOWN_SESSIONS_CATEGORY = "⚫️ Down Sessions"
 EMBED_COLOR = 0x2B2D31
 
