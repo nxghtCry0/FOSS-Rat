@@ -6,7 +6,7 @@ import base64
 # --- Configuration & State ---
 TOKEN_PATH = 'token.txt'; AUTHORIZED_USERS = [1153459521251983470]; SERVER_CATEGORY_NAME = "🔴 Live Sessions"
 COMMAND_PREFIX = '?'; INSTRUCTION_PREFIX = 'EXEC_CMD:'; active_sessions = {}
-UPLOAD_ATTACHMENT_SIZE_LIMIT = 1_500_000 # 1.5 MB limit for Base64 tunneling to avoid Discord message limit
+UPLOAD_ATTACHMENT_SIZE_LIMIT = 10_000_000 # 10 MB limit for Base64 tunneling to avoid Discord message limit
 
 # --- Bot Setup ---
 intents = discord.Intents.default(); intents.message_content = True

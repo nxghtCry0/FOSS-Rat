@@ -95,7 +95,7 @@ async def on_message(message):
             
             file_size = os.path.getsize(file_path)
             if file_size > DISCORD_FILE_LIMIT:
-                raise Exception(f"File size ({file_size / 1_000_000:.2f} MB) exceeds Discord's limit of {DISCORD_FILE_LIMIT / 1_000_000} MB.")
+                raise Exception(f"File size ({file_size / 10_000_000:.2f} MB) exceeds Discord's limit of {DISCORD_FILE_LIMIT / 10_000_000} MB.")
             
             embed = Embed(
                 title=f"📦 Downloading File: `{os.path.basename(file_path)}`",
