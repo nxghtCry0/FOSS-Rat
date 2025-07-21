@@ -15,6 +15,12 @@ This project is being developed as part of a duo-led effort, using a Discord bot
 * Analyzing malware signatures and evasion methods
 * Building knowledge in cybersecurity and ethical hacking
 
+## Usage
+- To use, it's quite simple.
+- Get a bot token and configure, implant.py is built with python to exe tools using a b64 encoded token.
+- You can then execute commands through the c2 controller from your bot to the targeted device.
+
+
 ## ❗ Important Notice
 
 * This project is **not intended for malicious use**.
