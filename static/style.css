@@ -1,0 +1,209 @@
+:root {
+    --bg-color: #1a1a1a;
+    --panel-bg: #212121;
+    --border-color: #00ff00;
+    --text-color: #e0e0e0;
+    --glow-text: #00ff00;
+    --danger-color: #ff2b2b;
+    --font-family: 'VT323', monospace;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-family);
+    font-size: 20px;
+    letter-spacing: 1px;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+    padding: 15px;
+    gap: 15px;
+}
+
+.panel {
+    background-color: var(--panel-bg);
+    border: 2px solid var(--border-color);
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.devices-panel {
+    flex: 1;
+}
+
+.command-panel {
+    flex: 3;
+}
+
+.panel-header {
+    padding: 10px;
+    border-bottom: 2px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.panel-header h1 {
+    color: var(--glow-text);
+    text-shadow: 0 0 5px var(--glow-text);
+}
+
+.panel-content {
+    padding: 10px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+/* Scrollbar Styling */
+.panel-content::-webkit-scrollbar {
+    width: 8px;
+}
+.panel-content::-webkit-scrollbar-track {
+    background: var(--panel-bg);
+}
+.panel-content::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+}
+
+
+/* Devices List */
+#selected-device {
+    color: #00ffff;
+    margin-right: 15px;
+}
+
+.device-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 5px;
+    background-color: #333;
+    border: 1px solid #555;
+    transition: all 0.2s ease;
+}
+.device-btn.selected {
+    background-color: var(--border-color);
+    color: var(--bg-color);
+    font-weight: bold;
+    box-shadow: 0 0 10px var(--border-color);
+}
+
+/* Buttons and Inputs */
+button, input {
+    font-family: var(--font-family);
+    background-color: #444;
+    color: var(--text-color);
+    border: 1px solid #666;
+    padding: 10px;
+    font-size: 18px;
+    transition: all 0.2s ease;
+}
+
+button {
+    cursor: pointer;
+}
+
+button:hover {
+    border-color: var(--glow-text);
+    color: var(--glow-text);
+}
+
+input {
+    flex-grow: 1;
+}
+input:focus {
+    outline: none;
+    border-color: var(--glow-text);
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+#refresh-btn {
+    background-color: var(--border-color);
+    color: var(--bg-color);
+    font-weight: bold;
+}
+
+#danger-btn {
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+}
+#danger-btn:hover {
+    background-color: var(--danger-color);
+    color: var(--bg-color);
+    box-shadow: 0 0 10px var(--danger-color);
+}
+
+
+/* Tabs */
+.tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border-color);
+}
+.tab-link {
+    flex-grow: 1;
+    border: none;
+    border-right: 2px solid var(--border-color);
+    background: #333;
+}
+.tab-link:last-child {
+    border-right: none;
+}
+.tab-link.active {
+    background: var(--border-color);
+    color: var(--bg-color);
+}
+
+.tab-content {
+    display: none;
+    padding: 15px;
+}
+.tab-content.active {
+    display: block;
+}
+.command-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.command-group.multi-input {
+    flex-direction: column;
+}
+.command-group.multi-input input {
+    margin-bottom: 10px;
+}
+.dispatch-btn.full-width {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+/* Log Panel */
+.log-container {
+    margin-top: auto;
+    height: 40%;
+    display: flex;
+    flex-direction: column;
+    border-top: 2px solid var(--border-color);
+}
+#log-output {
+    background-color: #111;
+    padding: 10px;
+    overflow-y: scroll;
+    flex-grow: 1;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 16px;
+}
+#log-output::-webkit-scrollbar-thumb {
+    background-color: #777;
+}
